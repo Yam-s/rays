@@ -14,13 +14,15 @@ namespace rays.Shapes
 
 		
 		public Vector3 Direction;
+		public float Velocity;
 
 		public Sphere(float x, float y, float z, float Radius)
 		{
 			Position = new Vector3(x, y, z);
 			this.Radius = Radius;
 
-			Direction = new Vector3(0.0f, (float)Game.RANDOM.NextDouble() * 4, 0.0f);
+			Direction = new Vector3(0.0f, 0.0f, 0.0f);
+			Velocity = 1;
 		}
 	}
 }

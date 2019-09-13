@@ -70,12 +70,17 @@ namespace rays
 			{
 				for (var z = -smallspheresize * 10.0f; z <= smallspheresize * 10.0f; z += smallspheresize + 0.5f)
 				{
-					Spheres.Add(new Sphere(z, smallspheresize, x*1.1f, smallspheresize));
-
+					var sphere = new Sphere(z, smallspheresize, x * 1.1f, smallspheresize);
+					sphere.Direction.Y = 1;
+					sphere.Velocity = (float)Game.RANDOM.NextDouble() * 4;
+					Spheres.Add(sphere);
 				}
 			}
 			var bigspheresize = 1f;
-			Spheres.Add(new Sphere(0.0f, bigspheresize + smallspheresize + 1.0f , 0.0f, bigspheresize));
+			Spheres.Add(new Sphere(0.0f, bigspheresize + smallspheresize + 1.0f, 0.0f, bigspheresize));
+			Spheres.Add(new Sphere(0.5f, bigspheresize + smallspheresize + 1.0f , -5.0f, bigspheresize));
+			Spheres.Last().Direction.X = 1.0f;
+
 
 			Console.WriteLine(Spheres.Count);
 
@@ -177,23 +182,37 @@ namespace rays
 			var result = Spheres.SelectMany(sphere => new float[] { sphere.Position.X, sphere.Position.Y, sphere.Position.Z, sphere.Radius }).ToArray();
 			GL.Uniform4(sphereUniform, result.Length, result);
 
-			// SPHERE BOBS
-			var last = Spheres.Last();
-			foreach(Sphere sphere in Spheres)
+			//! **************************************************************************************
+			//! This is messy just until I add a better way to add objects to scenes and update them *
+			//! **************************************************************************************
+			for (var i = 0; i <= Spheres.Count - 1; i++)
 			{
-				if (sphere.Equals(last))
-					break;
-				if (sphere.Position.Y > 1.0f || sphere.Position.Y < 0.5f)
+				var translate = new Vector4();
+				if (i == Spheres.Count-2)
+					continue;
+				if (i == Spheres.Count-1)
 				{
-					if (sphere.Direction.Y > 0)
-						sphere.Position.Y = 1.0f;
-					else
-						sphere.Position.Y = 0.5f;
-					sphere.Direction *= -1;
+					float radius = 10f;
+					Spheres[i].Velocity = 150f;
+
+					var angle = (float)Math.PI / 2 - ((float)Math.Acos(Spheres[i].Velocity * (float)e.Time / (2 * radius)));
+					translate = model * (Matrix4.CreateRotationY(angle) * new Vector4(Spheres[i].Direction, 1.0f));
 				}
-				var translate = model * Matrix4.CreateTranslation(sphere.Direction) * new Vector4(sphere.Direction, 1.0f);
-				var normal = new Vector3(translate);
-				sphere.Position += normal * (float)e.Time / 2;
+				else
+				{
+					if (Spheres[i].Position.Y > 1.0f || Spheres[i].Position.Y < 0.5f)
+					{
+						if (Spheres[i].Direction.Y > 0)
+							Spheres[i].Position.Y = 1.0f;
+						else
+							Spheres[i].Position.Y = 0.5f;
+						Spheres[i].Direction *= -1;
+					}
+					translate = model * (Matrix4.CreateTranslation(Spheres[i].Direction) * new Vector4(Spheres[i].Direction, 1.0f));
+				}
+
+				Spheres[i].Direction = new Vector3(translate).Normalized() * Spheres[i].Velocity;
+				Spheres[i].Position += new Vector3(Spheres[i].Direction) * (float)e.Time / 4;
 			}
 
 			if (Keyboard.GetState().IsKeyDown(Key.Escape))

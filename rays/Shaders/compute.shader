@@ -9,7 +9,7 @@ uniform vec3 rayBottomRight;
 uniform vec3 rayTopLeft;
 uniform vec3 rayTopRight;
 
-#define NUM_SPHERES 122
+#define NUM_SPHERES 123
 uniform vec4[NUM_SPHERES] spheres;
 
 uniform sampler2D skybox;
