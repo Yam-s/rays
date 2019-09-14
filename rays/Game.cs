@@ -14,7 +14,8 @@ namespace rays
 {
 	class Game : GameWindow
 	{
-		public static Random RANDOM = new Random();
+		public static int random_seed = 2839472;
+		public static Random RANDOM = new Random(random_seed);
 		List<Sphere> Spheres = new List<Sphere>();
 
 		// camera, mvp, frustrum corners
@@ -30,7 +31,7 @@ namespace rays
 		// Scene objects
 		int skybox_id; // No implemented
 		int sphereUniform;
-
+		
 		// Buffers
 		uint texture, texture_vao, texture_vbo;
 
@@ -71,15 +72,15 @@ namespace rays
 				for (var z = -smallspheresize * 10.0f; z <= smallspheresize * 10.0f; z += smallspheresize + 0.5f)
 				{
 					var sphere = new Sphere(z, smallspheresize, x * 1.1f, smallspheresize);
-					sphere.Direction.Y = 1;
-					sphere.Velocity = (float)Game.RANDOM.NextDouble() * 4;
+					sphere.Velocity.Y = 1;
+					sphere.Speed = (float)Game.RANDOM.NextDouble() * 4;
 					Spheres.Add(sphere);
 				}
 			}
 			var bigspheresize = 1f;
 			Spheres.Add(new Sphere(0.0f, bigspheresize + smallspheresize + 1.0f, 0.0f, bigspheresize));
-			Spheres.Add(new Sphere(0.5f, bigspheresize + smallspheresize + 1.0f , -5.0f, bigspheresize));
-			Spheres.Last().Direction.X = 1.0f;
+			Spheres.Add(new Sphere(0.5f, bigspheresize + smallspheresize + 1.0f, -5.0f, bigspheresize));
+			Spheres.Last().Velocity.X = 1.0f;
 
 
 			Console.WriteLine(Spheres.Count);
@@ -129,10 +130,10 @@ namespace rays
 			// Initialise Camera
 			camera = new Camera(this);
 
-			mvp_id = GL.GetUniformLocation(texture_shader, "MVP");
-
 			// Initialise compute shader uniforms
-			camera_id = GL.GetUniformLocation(rays_compute_shader, "eye");
+			GL.UseProgram(rays_compute_shader);
+			GL.Uniform1(GL.GetUniformLocation(rays_compute_shader, "_randseed"), (float)random_seed);
+			camera_id = GL.GetUniformLocation(rays_compute_shader, "camera");
 			rayBottomLeft = GL.GetUniformLocation(rays_compute_shader, "rayBottomLeft");
 			rayBottomRight = GL.GetUniformLocation(rays_compute_shader, "rayBottomRight");
 			rayTopLeft = GL.GetUniformLocation(rays_compute_shader, "rayTopLeft");
@@ -166,7 +167,6 @@ namespace rays
 
 			// Compute rays to frustrum corners & update uniforms
 			GL.UseProgram(rays_compute_shader);
-
 			Vector3 TopLeft = camera.GetNormalizedDeviceRay(-1.0f, 1.0f, view * projection);
 			Vector3 TopRight = camera.GetNormalizedDeviceRay(1.0f, 1.0f, view * projection);
 			Vector3 BottomLeft = camera.GetNormalizedDeviceRay(-1.0f, -1.0f, view * projection);
@@ -178,6 +178,7 @@ namespace rays
 			GL.Uniform3(rayTopRight, ref TopRight);
 			GL.Uniform3(rayBottomLeft, ref BottomLeft);
 			GL.Uniform3(rayBottomRight, ref BottomRight);
+
 
 			var result = Spheres.SelectMany(sphere => new float[] { sphere.Position.X, sphere.Position.Y, sphere.Position.Z, sphere.Radius }).ToArray();
 			GL.Uniform4(sphereUniform, result.Length, result);
@@ -193,26 +194,26 @@ namespace rays
 				if (i == Spheres.Count-1)
 				{
 					float radius = 10f;
-					Spheres[i].Velocity = 150f;
+					Spheres[i].Speed = 150f;
 
-					var angle = (float)Math.PI / 2 - ((float)Math.Acos(Spheres[i].Velocity * (float)e.Time / (2 * radius)));
-					translate = model * (Matrix4.CreateRotationY(angle) * new Vector4(Spheres[i].Direction, 1.0f));
+					var angle = (float)Math.PI / 2 - ((float)Math.Acos(Spheres[i].Speed * (float)e.Time / (2 * radius)));
+					translate = model * (Matrix4.CreateRotationY(angle) * new Vector4(Spheres[i].Velocity, 1.0f));
 				}
 				else
 				{
 					if (Spheres[i].Position.Y > 1.0f || Spheres[i].Position.Y < 0.5f)
 					{
-						if (Spheres[i].Direction.Y > 0)
+						if (Spheres[i].Velocity.Y > 0)
 							Spheres[i].Position.Y = 1.0f;
 						else
 							Spheres[i].Position.Y = 0.5f;
-						Spheres[i].Direction *= -1;
+						Spheres[i].Velocity *= -1;
 					}
-					translate = model * (Matrix4.CreateTranslation(Spheres[i].Direction) * new Vector4(Spheres[i].Direction, 1.0f));
+					translate = model * (Matrix4.CreateTranslation(Spheres[i].Velocity) * new Vector4(Spheres[i].Velocity, 1.0f));
 				}
 
-				Spheres[i].Direction = new Vector3(translate).Normalized() * Spheres[i].Velocity;
-				Spheres[i].Position += new Vector3(Spheres[i].Direction) * (float)e.Time / 4;
+				Spheres[i].Velocity = new Vector3(translate).Normalized() * Spheres[i].Speed;
+				Spheres[i].Position += new Vector3(Spheres[i].Velocity) * (float)e.Time / 4;
 			}
 
 			if (Keyboard.GetState().IsKeyDown(Key.Escape))
@@ -233,9 +234,9 @@ namespace rays
 			GL.UseProgram(texture_shader);
 			GL.UniformMatrix4(mvp_id, false, ref mvp);
 			GL.BindVertexArray(texture_vao);
-			GL.DrawArrays(PrimitiveType.Quads, 0, 4); 
+			GL.DrawArrays(PrimitiveType.Quads, 0, 4);
 
-			 SwapBuffers();
+			SwapBuffers();
 		}
 	}
 }

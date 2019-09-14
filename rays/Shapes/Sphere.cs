@@ -13,16 +13,16 @@ namespace rays.Shapes
 		public float Radius;
 
 		
-		public Vector3 Direction;
-		public float Velocity;
+		public Vector3 Velocity;
+		public float Speed;
 
 		public Sphere(float x, float y, float z, float Radius)
 		{
 			Position = new Vector3(x, y, z);
 			this.Radius = Radius;
 
-			Direction = new Vector3(0.0f, 0.0f, 0.0f);
-			Velocity = 1;
+			Velocity = new Vector3(0.0f, 0.0f, 0.0f);
+			Speed = 1;
 		}
 	}
 }

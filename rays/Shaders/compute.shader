@@ -3,7 +3,7 @@
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
-uniform vec3 eye;
+uniform vec3 camera;
 uniform vec3 rayBottomLeft;
 uniform vec3 rayBottomRight;
 uniform vec3 rayTopLeft;
@@ -14,16 +14,21 @@ uniform vec4[NUM_SPHERES] spheres;
 
 uniform sampler2D skybox;
 
+uniform float _randseed;
+float seed = 0;
+vec2 _pixel = gl_GlobalInvocationID.xy;
+
 const float PI = 3.14159265f;
 const float infinity = 1. / 0.;
-
 
 // Ray Types
 const uint LightRay = 0x100;
 const uint ShadowRay = 0x101;
 
-float rand(vec2 co){
-    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+float rand(){
+    float result = fract(sin(seed / 100.0f * dot(_pixel, vec2(12.9898,78.233))) * 43758.5453123);
+	seed += 1.0f;
+	return result;
 }
 
 struct Ray
@@ -77,10 +82,9 @@ struct Sphere
 Sphere CreateSphere(float x, float y, float z, float radius)
 {
 	Sphere sphere;
-	sphere.position = vec3(x,y,z);
+	sphere.position = vec3(x, y, z);
 	sphere.radius = radius;
-	//sphere.albedo = vec3(rand(vec2(x,y)), rand(vec2(y,z)), rand(vec2(z,x)));
-	sphere.albedo = vec3(x,1.0f,z);
+	sphere.albedo = vec3(x, 1.0f, z);
 	sphere.specular = vec3(0.6f, 0.6f, 0.6f);
 	return sphere;
 }
@@ -247,6 +251,7 @@ vec3 Shade(inout Ray ray, RayHit hit, Light light)
 
 void main()
 {
+	seed = _randseed;
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
 	ivec2 size = imageSize(img_output);
 
@@ -262,7 +267,7 @@ void main()
 	// This is for proper perspective
 	vec3 dir = mix(mix(rayBottomLeft, rayTopLeft, position.y), mix(rayBottomRight, rayTopRight, position.y), position.x);
 	
-	Ray ray = CreateRay(eye, dir, LightRay);
+	Ray ray = CreateRay(camera, dir, LightRay);
 	Light light = CreateLight(vec3(0.8f, 0.8f, 0.8f), 1.8f, vec3(1.0f, -1.0f, -1.0f));
 
 	vec3 final_color = vec3(0,0,0);
