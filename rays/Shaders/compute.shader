@@ -1,4 +1,4 @@
-﻿#version 450 core
+﻿#version 430 core
 
 layout(local_size_x = 8, local_size_y = 8) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
@@ -9,7 +9,7 @@ uniform vec3 rayBottomRight;
 uniform vec3 rayTopLeft;
 uniform vec3 rayTopRight;
 
-#define NUM_SPHERES 123
+#define NUM_SPHERES 2
 uniform vec4[NUM_SPHERES] spheres;
 
 uniform sampler2D skybox;
@@ -143,7 +143,7 @@ void IntersectSphere(inout Ray ray, inout RayHit hit, Sphere sphere)
 		hit.specular = sphere.specular;
 
 		// Texture mapping
-		float texScale = 4;
+		//float texScale = 8;
 		//hit.tex.x = ((0.5 + atan(hit.normal.x, hit.normal.z) / PI) * 0.5) * texScale;
 		//hit.tex.y =  (0.5 - acos(hit.normal.y) / PI) * texScale;
 	}
@@ -174,13 +174,12 @@ void IntersectGroundPlane(Ray ray, inout RayHit hit, vec3 origin, vec3 normal)
 			hit.distance = t;
 			hit.position = ray.position + t * ray.direction;
 			hit.normal = normal;
-			hit.albedo = vec3(0.8f, 0.8f, 0.8f);
-			hit.specular = vec3(0.24f, 0.24f, 0.24f);
-
+			hit.albedo = vec3(1f, 1f, 1f);
+			hit.specular = vec3(0.6f, 0.6f, 0.6f);
 
 			// Plane textures
 			vec3 test = computePrimaryTexDir(hit.normal);
-			float texScale = 1;
+			float texScale = 2;
 			hit.tex.x = dot(hit.position, test) * texScale;
 			hit.tex.y = dot(hit.position, cross(hit.normal, test)) * texScale;
 		}
@@ -201,8 +200,6 @@ RayHit Trace(Ray ray)
 		Sphere sphere = CreateSphere(spheres[i].x, spheres[i].y, spheres[i].z, spheres[i].w);
 		IntersectSphere(ray, hit, sphere);
 
-		// If shadow ray, once we hit something we're in shadow, so stop looping through objects
-		// This wouldn't work if we had transparent objects (which I don't!)
 	}
 	// Ground
 	IntersectGroundPlane(ray, hit, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
@@ -240,7 +237,9 @@ vec3 Shade(inout Ray ray, RayHit hit, Light light)
 		float angle = dot(ray.direction, hit.normal) / length(ray.direction) * length(hit.normal);
 		vec3 color = clamp(dot(hit.normal, L), 0.0f, 1.0f) * light.intensity * light.color * angle * hit.albedo;
 		//vec3 color = hit.albedo * light.intensity * light.color * clamp(dot(hit.normal, L), 0.0f, 1.0f);
-		return mix(color, color * 0.8, pattern);
+
+		vec3 black = clamp(dot(hit.normal, L), 0.0f, 1.0f) * light.intensity * vec3(0f, 0f, 0f) * angle * hit.albedo;
+		return mix(color, black, pattern);
 	}
 	else
 	{

@@ -9,6 +9,12 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Input;
 using rays.Shapes;
 using rays.Handlers;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace rays
 {
@@ -20,18 +26,17 @@ namespace rays
 
 		// camera, mvp, frustrum corners
 		Camera camera;
-		MouseState current, previous;
 		Matrix4 mvp, model, view, projection;
 
 		// Uniforms 
 		// Perspective & frustrum
-		int mvp_id, camera_id;
+		int camera_id;
 		int rayBottomLeft, rayBottomRight, rayTopLeft, rayTopRight;
 
 		// Scene objects
-		int skybox_id; // No implemented
+		int skybox_id; // Not implemented
 		int sphereUniform;
-		
+
 		// Buffers
 		uint texture, texture_vao, texture_vbo;
 
@@ -42,52 +47,46 @@ namespace rays
 
 		float[] texturedata;
 
-		public Game(int width, int height) : base(width, height, GraphicsMode.Default, "", GameWindowFlags.FixedWindow)
+		int Width = 1600;
+		int Height = 900;
+
+
+		private static DebugProc _debugProcCallback = DebugCallback;
+		private static GCHandle _debugProcCallbackHandle;
+
+		public Game(GameWindowSettings gwSettings, NativeWindowSettings nwSettings) : base(gwSettings, nwSettings) { }
+
+		private static void DebugCallback(DebugSource source, DebugType type, int id, DebugSeverity severity, int length, IntPtr message, IntPtr userParam)
 		{
-			this.Size = new System.Drawing.Size(Width, Height);
-			VSync = VSyncMode.On;
-			CursorVisible = false;
-			MouseMove += (s, a) =>
+			string messageString = Marshal.PtrToStringAnsi(message, length);
+
+			Console.WriteLine($"{severity} {type} | {messageString}");
+
+			if (type == DebugType.DebugTypeError)
 			{
-				//this.Title = String.Format("Mouse position: {0},{1}", a.X.ToString(), a.Y.ToString());
-				//Mouse.SetPosition(1920 / 2, 1080 / 2);
-			};
-			KeyPress += (s, a) =>
-			{
-				Console.WriteLine(a.KeyChar);
-			};
+				throw new Exception(messageString);
+			}
 		}
 
-		protected override void OnLoad(EventArgs e)
+		protected override void OnLoad()
 		{
-			base.OnLoad(e);
+			// Debug stuff
+			_debugProcCallbackHandle = GCHandle.Alloc(_debugProcCallback);
+
+			GL.DebugMessageCallback(_debugProcCallback, IntPtr.Zero);
+			GL.Enable(EnableCap.DebugOutput);
+			//GL.Enable(EnableCap.DebugOutputSynchronous);
+			// End debug stuff
+
 
 			//GL.ClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 			GL.Enable(EnableCap.DepthTest);
 
 			// Create spheres
-			var smallspheresize = 0.5f;
-			for (var x = -smallspheresize * 10.0f; x <= smallspheresize * 10.0f; x += smallspheresize + 0.5f)
-			{
-				for (var z = -smallspheresize * 10.0f; z <= smallspheresize * 10.0f; z += smallspheresize + 0.5f)
-				{
-					var sphere = new Sphere(z, smallspheresize, x * 1.1f, smallspheresize);
-					sphere.Velocity.Y = 1;
-					sphere.Speed = (float)Game.RANDOM.NextDouble() * 4;
-					Spheres.Add(sphere);
-				}
-			}
 			var bigspheresize = 1f;
-			Spheres.Add(new Sphere(0.0f, bigspheresize + smallspheresize + 1.0f, 0.0f, bigspheresize));
-			Spheres.Add(new Sphere(0.5f, bigspheresize + smallspheresize + 1.0f, -5.0f, bigspheresize));
+			Spheres.Add(new Sphere(0.0f, bigspheresize + 1.0f, 0.0f, bigspheresize));
+			Spheres.Add(new Sphere(0.5f, bigspheresize + 1.0f, -5.0f, bigspheresize));
 			Spheres.Last().Velocity.X = 1.0f;
-
-
-			Console.WriteLine(Spheres.Count);
-
-			// Create texture vao
-			GL.GenVertexArrays(1, out texture_vao);
-			GL.BindVertexArray(texture_vao);
 
 			texturedata = new float[]
 			{
@@ -98,13 +97,16 @@ namespace rays
 				 1.0f, -1.0f, 0.0f, //! bottom right corner
 			};
 
+			// Create texture vao
+			GL.GenVertexArrays(1, out texture_vao);
+			GL.BindVertexArray(texture_vao);
+
 			// Texture vbo
 			GL.GenBuffers(1, out texture_vbo);
 			GL.BindBuffer(BufferTarget.ArrayBuffer, texture_vbo);
 			GL.BufferData(BufferTarget.ArrayBuffer, sizeof(float) * texturedata.Length, texturedata, BufferUsageHint.DynamicDraw);
 
 			// Vertex position attributes
-			// These can only be used after binding a VBO since the glVertexAttribPointer function sets the currently bound GL_ARRAY_BUFFER as a source buffer for this attribute
 			GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
 			GL.EnableVertexArrayAttrib(texture_vao, 0);
 
@@ -140,20 +142,18 @@ namespace rays
 			rayTopRight = GL.GetUniformLocation(rays_compute_shader, "rayTopRight");
 			sphereUniform = GL.GetUniformLocation(rays_compute_shader, "spheres");
 			//skybox_id = GL.GetUniformLocation(rays_compute_shader, "skybox");
+
+			base.OnLoad();
 		}
 
 		protected override void OnUpdateFrame(FrameEventArgs e)
 		{
 			base.OnUpdateFrame(e);
 
-			current = Mouse.GetState();
-
-			var delta = new Vector2(previous.X - current.X, previous.Y - current.Y);
+			var delta = new Vector2(MouseState.PreviousX - MouseState.X, MouseState.PreviousY - MouseState.Y);
 
 			camera.Aim(delta, e.Time);
 			camera.Move(e.Time);
-
-			previous = current;
 
 			projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(90f), (float)Width / (float)Height, 0.01f, 100f);
 			view = Matrix4.LookAt(
@@ -179,51 +179,33 @@ namespace rays
 			GL.Uniform3(rayBottomLeft, ref BottomLeft);
 			GL.Uniform3(rayBottomRight, ref BottomRight);
 
-
 			var result = Spheres.SelectMany(sphere => new float[] { sphere.Position.X, sphere.Position.Y, sphere.Position.Z, sphere.Radius }).ToArray();
+
+			// This prevents crashing..?
+			/*for (int i = 0; i < result.Length; i += 4)
+			{
+				Console.WriteLine($"Starting at {(i / 4) + 1}: x[{result[i]}] y[{result[i + 1]}] z[{result[i + 2]}] radius[{result[i + 3]}]");
+			}*/
+
 			GL.Uniform4(sphereUniform, result.Length, result);
 
-			//! **************************************************************************************
-			//! This is messy just until I add a better way to add objects to scenes and update them *
-			//! **************************************************************************************
-			for (var i = 0; i <= Spheres.Count - 1; i++)
-			{
-				var translate = new Vector4();
-				if (i == Spheres.Count-2)
-					continue;
-				if (i == Spheres.Count-1)
-				{
-					float radius = 10f;
-					Spheres[i].Speed = 150f;
+			// Move second sphere
+			Vector4 translate;
+			float radius = 10f;
+			Spheres[1].Speed = 150f;
+			var angle = (float)Math.PI / 2 - ((float)Math.Acos(Spheres[1].Speed * (float)e.Time / (2 * radius)));
+			translate = model * (Matrix4.CreateRotationY(angle) * new Vector4(Spheres[1].Velocity, 1.0f));
 
-					var angle = (float)Math.PI / 2 - ((float)Math.Acos(Spheres[i].Speed * (float)e.Time / (2 * radius)));
-					translate = model * (Matrix4.CreateRotationY(angle) * new Vector4(Spheres[i].Velocity, 1.0f));
-				}
-				else
-				{
-					if (Spheres[i].Position.Y > 1.0f || Spheres[i].Position.Y < 0.5f)
-					{
-						if (Spheres[i].Velocity.Y > 0)
-							Spheres[i].Position.Y = 1.0f;
-						else
-							Spheres[i].Position.Y = 0.5f;
-						Spheres[i].Velocity *= -1;
-					}
-					translate = model * (Matrix4.CreateTranslation(Spheres[i].Velocity) * new Vector4(Spheres[i].Velocity, 1.0f));
-				}
+			Spheres[1].Velocity = new Vector3(translate).Normalized() * Spheres[1].Speed;
+			Spheres[1].Position += new Vector3(Spheres[1].Velocity) * (float)e.Time / 4;
 
-				Spheres[i].Velocity = new Vector3(translate).Normalized() * Spheres[i].Speed;
-				Spheres[i].Position += new Vector3(Spheres[i].Velocity) * (float)e.Time / 4;
-			}
-
-			if (Keyboard.GetState().IsKeyDown(Key.Escape))
-				Exit();
+			if (KeyboardState.IsKeyDown(Keys.Escape))
+				Close();
 		}
 
 		protected override void OnRenderFrame(FrameEventArgs e)
 		{
-			base.OnRenderFrame(e);
-			this.Title = this.RenderFrequency.ToString();
+			this.Title = "yeet";
 			// Compute scene
 			GL.UseProgram(rays_compute_shader);
 			GL.DispatchCompute(Width, Height, 1);
@@ -232,11 +214,16 @@ namespace rays
 			// Draw quad
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			GL.UseProgram(texture_shader);
-			GL.UniformMatrix4(mvp_id, false, ref mvp);
+			GL.ActiveTexture(TextureUnit.Texture0);
+			GL.BindTexture(TextureTarget.Texture2D, texture);
 			GL.BindVertexArray(texture_vao);
-			GL.DrawArrays(PrimitiveType.Quads, 0, 4);
+
+			//GL.DrawArrays(PrimitiveType.Quads, 0, 4);
+			GL.DrawArrays(PrimitiveType.TriangleFan, 0, 4);
 
 			SwapBuffers();
+
+			base.OnRenderFrame(e);
 		}
 	}
 }

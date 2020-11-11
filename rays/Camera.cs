@@ -5,51 +5,15 @@ using System.Text;
 using System.Threading.Tasks;
 using OpenTK;
 using OpenTK.Input;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace rays
 {
-	/*public class Camera
-	{
-
-		// Position, & Direction
-		public Vector3 Position;
-		public Vector3 CameraTarget;
-		public Vector3 Direction;
-
-		// Axis
-		public Vector3 Up;
-		public Vector3 Right;
-		public Vector3 Forward;	
-
-
-		public Camera()
-		{
-			Position = new Vector3(0.0f, 5.0f, 5.0f);
-			CameraTarget = new Vector3(0.0f, 3.0f, 0.0f);
-			Direction = CameraTarget - Position;
-
-			var worldUp = new Vector3(0.0f, 1.0f, 0.0f);
-			Right = Vector3.Normalize(Vector3.Cross(worldUp, Direction));
-			Up = Vector3.Cross(Direction, Right);
-			Forward = -Direction;
-		}
-
-		public Vector3 GetNormalizedDeviceRay(float x, float y, Matrix4 VP)
-		{
-			// Invert View and Projection matrix
-			var invertedProjectionView = Matrix4.Invert(VP);
-			// Convert from clipping space (device) coordinates to world space by multiplying by the inverse of VP matrix
-			var transform = new Vector4(x, y, 0.0f, 1.0f) * invertedProjectionView;
-			// Divide by w (this is called a perspective-divide)
-			var perspective = new Vector3(transform.X / transform.W, transform.Y / transform.W, transform.Z / transform.W);
-			// Now we return the direction vector of the given x/y coordinates from the camera position.
-			return new Vector3(perspective.X, perspective.Y, perspective.Z) - Position;
-		}
-	}*/
-
 	class Camera
 	{
-		GameWindow window;
+		Game window;
 		float sens = 0.0025f;
 
 		float hAngle = 3.14f;
@@ -60,7 +24,7 @@ namespace rays
 		public Vector3 right { get; private set; } = new Vector3(0, 0, 0);
 		public Vector3 up { get; private set; } = new Vector3(0, 0, 0);
 
-		public Camera(GameWindow gamewindow)
+		public Camera(Game gamewindow)
 		{
 			window = gamewindow;
 		}
@@ -87,19 +51,20 @@ namespace rays
 
 		public void Move(double time)
 		{
-			if (Keyboard.GetState().IsKeyDown(Key.W))
+			var kb = window.KeyboardState;
+			if (kb.IsKeyDown(Keys.W))
 			{
 				position += direction * (float)time * 3f;
 			}
-			if (Keyboard.GetState().IsKeyDown(Key.A))
+			if (kb.IsKeyDown(Keys.A))
 			{
 				position -= right * (float)time * 3f;
 			}
-			if (Keyboard.GetState().IsKeyDown(Key.S))
+			if (kb.IsKeyDown(Keys.S))
 			{
 				position -= direction * (float)time * 3f;
 			}
-			if (Keyboard.GetState().IsKeyDown(Key.D))
+			if (kb.IsKeyDown(Keys.D))
 			{
 				position += right * (float)time * 3f;
 			}
@@ -107,13 +72,9 @@ namespace rays
 
 		public Vector3 GetNormalizedDeviceRay(float x, float y, Matrix4 VP)
 		{
-			// Invert View and Projection matrix
 			var invertedProjectionView = Matrix4.Invert(VP);
-			// Convert from clipping space (device) coordinates to world space by multiplying by the inverse of VP matrix
 			var transform = new Vector4(x, y, 0.0f, 1.0f) * invertedProjectionView;
-			// Divide by w (this is called a perspective-divide)
 			var perspective = new Vector3(transform.X / transform.W, transform.Y / transform.W, transform.Z / transform.W);
-			// Now we return the direction vector of the given x/y coordinates from the camera position.
 			return new Vector3(perspective.X, perspective.Y, perspective.Z) - position;
 		}
 	}

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Drawing;
+using OpenTK.Windowing.Desktop;
 
 namespace rays
 {
@@ -11,10 +12,21 @@ namespace rays
 	{
 		static void Main(string[] args)
 		{
-			using (Game game = new Game(1280, 720))
+			var gws = new GameWindowSettings()
 			{
+				IsMultiThreaded = false
+			};
+			var nws = new NativeWindowSettings()
+			{
+				Size = new OpenTK.Mathematics.Vector2i(1600, 900)
 				
-				game.Run(120);
+			};
+
+
+			using (Game game = new Game(gws, nws))
+			{
+				game.VSync = OpenTK.Windowing.Common.VSyncMode.On;
+				game.Run();
 				
 			}
 		}
